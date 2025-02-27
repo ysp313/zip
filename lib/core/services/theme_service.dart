@@ -36,9 +36,8 @@ class ThemeService extends ChangeNotifier {
   }
 
   void toggleTheme() {
-    final newMode = _themeMode == ThemeMode.light
-        ? ThemeMode.dark
-        : ThemeMode.light;
+    final newMode =
+        _themeMode == ThemeMode.light ? ThemeMode.dark : ThemeMode.light;
     setThemeMode(newMode);
   }
 }

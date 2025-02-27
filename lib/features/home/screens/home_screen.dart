@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:unzip/config/constants.dart';
-import 'package:unzip/core/services/theme_service.dart';
+import 'package:unzip/core/blocs/theme_cubit.dart';
 import 'package:unzip/features/home/widgets/tool_card.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -20,14 +20,18 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('Dev Toolbox'),
         actions: [
-          IconButton(
-            icon: Icon(
-              Provider.of<ThemeService>(context).themeMode == ThemeMode.light
-                  ? Icons.dark_mode
-                  : Icons.light_mode,
-            ),
-            onPressed: () {
-              Provider.of<ThemeService>(context, listen: false).toggleTheme();
+          BlocBuilder<ThemeCubit, ThemeMode>(
+            builder: (context, themeMode) {
+              return IconButton(
+                icon: Icon(
+                  themeMode == ThemeMode.light
+                      ? Icons.dark_mode
+                      : Icons.light_mode,
+                ),
+                onPressed: () {
+                  context.read<ThemeCubit>().toggleTheme();
+                },
+              );
             },
           ),
         ],

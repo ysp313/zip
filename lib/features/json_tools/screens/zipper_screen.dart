@@ -1,8 +1,7 @@
-import 'dart:convert';
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:unzip/config/constants.dart';
-import 'package:unzip/features/json_tools/controllers/zipper_controller.dart';
+import 'package:unzip/features/json_tools/cubits/zipper_cubit.dart';
 import 'package:unzip/features/json_tools/widgets/json_editor.dart';
 import 'package:unzip/features/json_tools/widgets/file_operation_buttons.dart';
 import 'package:flutter/services.dart';
@@ -12,8 +11,8 @@ class ZipperScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<ZipperController>(
-      create: (_) => ZipperController(),
+    return BlocProvider<ZipperCubit>(
+      create: (_) => ZipperCubit(),
       child: const _ZipperScreenContent(),
     );
   }
@@ -24,8 +23,6 @@ class _ZipperScreenContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Provider.of<ZipperController>(context);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Compression JSON'),
@@ -33,7 +30,7 @@ class _ZipperScreenContent extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Réinitialiser',
-            onPressed: () => controller.reset(),
+            onPressed: () => context.read<ZipperCubit>().reset(),
           ),
         ],
       ),
@@ -42,23 +39,30 @@ class _ZipperScreenContent extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildFileInputSection(context, controller),
+            _buildFileInputSection(context),
             const SizedBox(height: 16),
-            _buildJsonInputSection(context, controller),
+            _buildJsonInputSection(context),
             const SizedBox(height: 16),
-            _buildActionButtons(context, controller),
+            _buildActionButtons(context),
             const SizedBox(height: 16),
-            if (controller.state == ZipperState.error)
-              _buildErrorMessage(controller.errorMessage),
-            if (controller.state == ZipperState.compressed)
-              _buildCompressedOutput(context, controller),
+            BlocBuilder<ZipperCubit, ZipperState>(
+              builder: (context, state) {
+                if (state.status == ZipperStatus.error) {
+                  return _buildErrorMessage(state.errorMessage);
+                }
+                if (state.status == ZipperStatus.compressed) {
+                  return _buildCompressedOutput(context, state);
+                }
+                return const SizedBox.shrink();
+              },
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildFileInputSection(BuildContext context, ZipperController controller) {
+  Widget _buildFileInputSection(BuildContext context) {
     return Card(
       elevation: 2,
       child: Padding(
@@ -76,27 +80,33 @@ class _ZipperScreenContent extends StatelessWidget {
             const SizedBox(height: 16),
             FileOperationButtons(
               onFilePicked: (content) async {
-                controller.setJsonInput(content);
-                controller.validateJson();
+                context.read<ZipperCubit>().setJsonInput(content);
+                context.read<ZipperCubit>().validateJson();
               },
-              allowedExtensions: ['json'],
+              allowedExtensions: const ['json'],
               maxFileSize: AppConstants.maxFileSize,
             ),
-            if (controller.isFileLoaded && controller.fileName != null)
-              Padding(
-                padding: const EdgeInsets.only(top: 8.0),
-                child: Text(
-                  'Fichier chargé: ${controller.fileName}',
-                  style: const TextStyle(fontStyle: FontStyle.italic),
-                ),
-              ),
+            BlocBuilder<ZipperCubit, ZipperState>(
+              builder: (context, state) {
+                if (state.isFileLoaded && state.fileName != null) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text(
+                      'Fichier chargé: ${state.fileName}',
+                      style: const TextStyle(fontStyle: FontStyle.italic),
+                    ),
+                  );
+                }
+                return const SizedBox.shrink();
+              },
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildJsonInputSection(BuildContext context, ZipperController controller) {
+  Widget _buildJsonInputSection(BuildContext context) {
     return Expanded(
       child: Card(
         elevation: 2,
@@ -114,10 +124,15 @@ class _ZipperScreenContent extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Expanded(
-                child: JsonEditor(
-                  initialValue: controller.jsonInput,
-                  onChanged: controller.setJsonInput,
-                  readOnly: controller.state == ZipperState.loading,
+                child: BlocBuilder<ZipperCubit, ZipperState>(
+                  builder: (context, state) {
+                    return JsonEditor(
+                      initialValue: state.jsonInput,
+                      onChanged: (value) =>
+                          context.read<ZipperCubit>().setJsonInput(value),
+                      readOnly: state.status == ZipperStatus.loading,
+                    );
+                  },
                 ),
               ),
             ],
@@ -127,30 +142,34 @@ class _ZipperScreenContent extends StatelessWidget {
     );
   }
 
-  Widget _buildActionButtons(BuildContext context, ZipperController controller) {
-    return Row(
-      children: [
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: controller.state == ZipperState.loading
-                ? null
-                : () => controller.validateJson(),
-            icon: const Icon(Icons.check_circle),
-            label: const Text('Valider le JSON'),
-          ),
-        ),
-        const SizedBox(width: 16),
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: controller.state == ZipperState.validated ||
-                controller.state == ZipperState.compressed
-                ? () => controller.compressData()
-                : null,
-            icon: const Icon(Icons.compress),
-            label: const Text('Compresser'),
-          ),
-        ),
-      ],
+  Widget _buildActionButtons(BuildContext context) {
+    return BlocBuilder<ZipperCubit, ZipperState>(
+      builder: (context, state) {
+        return Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: state.status == ZipperStatus.loading
+                    ? null
+                    : () => context.read<ZipperCubit>().validateJson(),
+                icon: const Icon(Icons.check_circle),
+                label: const Text('Valider le JSON'),
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: state.status == ZipperStatus.validated ||
+                        state.status == ZipperStatus.compressed
+                    ? () => context.read<ZipperCubit>().compressData()
+                    : null,
+                icon: const Icon(Icons.compress),
+                label: const Text('Compresser'),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -177,7 +196,7 @@ class _ZipperScreenContent extends StatelessWidget {
     );
   }
 
-  Widget _buildCompressedOutput(BuildContext context, ZipperController controller) {
+  Widget _buildCompressedOutput(BuildContext context, ZipperState state) {
     return Expanded(
       child: Card(
         elevation: 2,
@@ -197,14 +216,17 @@ class _ZipperScreenContent extends StatelessWidget {
                     ),
                   ),
                   ElevatedButton.icon(
-                    onPressed: () {
-                      controller.copyToClipboard();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Copié dans le presse-papiers'),
-                          backgroundColor: Colors.green,
-                        ),
-                      );
+                    onPressed: () async {
+                      await Clipboard.setData(
+                          ClipboardData(text: state.compressedData));
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Copié dans le presse-papiers'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      }
                     },
                     icon: const Icon(Icons.copy),
                     label: const Text('Copier'),
@@ -217,19 +239,19 @@ class _ZipperScreenContent extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Expanded(
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey),
-                  ),
-                  padding: const EdgeInsets.all(16),
-                  child: SingleChildScrollView(
+                child: SingleChildScrollView(
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey),
+                    ),
                     child: SelectableText(
-                      controller.compressedData,
+                      state.compressedData,
                       style: const TextStyle(
                         fontFamily: 'monospace',
-                        fontSize: 14,
+                        fontSize: 12,
                       ),
                     ),
                   ),

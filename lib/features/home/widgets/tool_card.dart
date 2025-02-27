@@ -27,7 +27,7 @@ class ToolCard extends StatelessWidget {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                tool.color.withOpacity(0.6),
+                tool.color.withOpacity(0.8),
                 tool.color,
               ],
             ),

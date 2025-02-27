@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'package:file_saver/file_saver.dart';
 import 'package:flutter/material.dart';
-import 'package:unzip/features/json_tools/controllers/unzipper_controller.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:unzip/features/json_tools/cubits/unzipper_cubit.dart';
 import 'package:unzip/features/json_tools/widgets/json_editor.dart';
 import 'package:flutter/services.dart';
 
@@ -10,8 +11,8 @@ class UnzipperScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider<UnzipperController>(
-      create: (_) => UnzipperController(),
+    return BlocProvider<UnzipperCubit>(
+      create: (_) => UnzipperCubit(),
       child: const _UnzipperScreenContent(),
     );
   }
@@ -22,8 +23,6 @@ class _UnzipperScreenContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final controller = Provider.of<UnzipperController>(context);
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Décompression JSON'),
@@ -31,7 +30,7 @@ class _UnzipperScreenContent extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Réinitialiser',
-            onPressed: () => controller.reset(),
+            onPressed: () => context.read<UnzipperCubit>().reset(),
           ),
         ],
       ),
@@ -40,22 +39,29 @@ class _UnzipperScreenContent extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildCompressedInputSection(context, controller),
+            _buildCompressedInputSection(context),
             const SizedBox(height: 16),
-            _buildActionButtons(context, controller),
+            _buildActionButtons(context),
             const SizedBox(height: 16),
-            if (controller.state == UnzipperState.error)
-              _buildErrorMessage(controller.errorMessage),
-            if (controller.state == UnzipperState.unzipped ||
-                controller.state == UnzipperState.editing)
-              _buildUnzippedOutput(context, controller),
+            BlocBuilder<UnzipperCubit, UnzipperState>(
+              builder: (context, state) {
+                if (state.status == UnzipperStatus.error) {
+                  return _buildErrorMessage(state.errorMessage);
+                }
+                if (state.status == UnzipperStatus.unzipped ||
+                    state.status == UnzipperStatus.editing) {
+                  return _buildUnzippedOutput(context, state);
+                }
+                return const SizedBox.shrink();
+              },
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCompressedInputSection(BuildContext context, UnzipperController controller) {
+  Widget _buildCompressedInputSection(BuildContext context) {
     return Card(
       elevation: 2,
       child: Padding(
@@ -72,7 +78,7 @@ class _UnzipperScreenContent extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             TextField(
-              onChanged: controller.setInputData,
+              onChanged: (value) => context.read<UnzipperCubit>().setInputData(value),
               maxLines: 5,
               decoration: const InputDecoration(
                 hintText: 'Collez ici les données compressées...',
@@ -85,16 +91,20 @@ class _UnzipperScreenContent extends StatelessWidget {
     );
   }
 
-  Widget _buildActionButtons(BuildContext context, UnzipperController controller) {
-    return ElevatedButton.icon(
-      onPressed: controller.state == UnzipperState.loading
-          ? null
-          : () => controller.unzipData(),
-      icon: const Icon(Icons.file_download),
-      label: const Text('Décompresser et afficher'),
-      style: ElevatedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-      ),
+  Widget _buildActionButtons(BuildContext context) {
+    return BlocBuilder<UnzipperCubit, UnzipperState>(
+      builder: (context, state) {
+        return ElevatedButton.icon(
+          onPressed: state.status == UnzipperStatus.loading
+              ? null
+              : () => context.read<UnzipperCubit>().unzipData(),
+          icon: const Icon(Icons.file_download),
+          label: const Text('Décompresser et afficher'),
+          style: ElevatedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+          ),
+        );
+      },
     );
   }
 
@@ -121,7 +131,7 @@ class _UnzipperScreenContent extends StatelessWidget {
     );
   }
 
-  Widget _buildUnzippedOutput(BuildContext context, UnzipperController controller) {
+  Widget _buildUnzippedOutput(BuildContext context, UnzipperState state) {
     return Expanded(
       child: Card(
         elevation: 2,
@@ -140,38 +150,38 @@ class _UnzipperScreenContent extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  if (controller.state == UnzipperState.unzipped)
+                  if (state.status == UnzipperStatus.unzipped)
                     Row(
                       children: [
                         IconButton(
                           icon: const Icon(Icons.edit),
                           tooltip: 'Éditer',
-                          onPressed: controller.startEditing,
+                          onPressed: () => context.read<UnzipperCubit>().startEditing(),
                         ),
                         IconButton(
                           icon: const Icon(Icons.file_download),
                           tooltip: 'Télécharger en JSON',
-                          onPressed: () => _downloadJson(context, controller),
+                          onPressed: () => _downloadJson(context, state),
                         ),
                         IconButton(
                           icon: const Icon(Icons.compress),
                           tooltip: 'Recompresser',
-                          onPressed: () => controller.recompressJson(),
+                          onPressed: () => context.read<UnzipperCubit>().recompressJson(),
                         ),
                       ],
                     )
-                  else if (controller.state == UnzipperState.editing)
+                  else if (state.status == UnzipperStatus.editing)
                     Row(
                       children: [
                         TextButton.icon(
                           icon: const Icon(Icons.check),
                           label: const Text('Appliquer'),
-                          onPressed: controller.applyEdits,
+                          onPressed: () => context.read<UnzipperCubit>().applyEdits(),
                         ),
                         TextButton.icon(
                           icon: const Icon(Icons.cancel),
                           label: const Text('Annuler'),
-                          onPressed: controller.stopEditing,
+                          onPressed: () => context.read<UnzipperCubit>().stopEditing(),
                         ),
                       ],
                     ),
@@ -180,13 +190,13 @@ class _UnzipperScreenContent extends StatelessWidget {
               const SizedBox(height: 8),
               Expanded(
                 child: JsonEditor(
-                  initialValue: controller.jsonOutput,
-                  onChanged: controller.setJsonOutput,
-                  readOnly: controller.state != UnzipperState.editing,
+                  initialValue: state.jsonOutput,
+                  onChanged: (value) => context.read<UnzipperCubit>().setJsonOutput(value),
+                  readOnly: state.status != UnzipperStatus.editing,
                   enableSyntaxHighlighting: true,
                 ),
               ),
-              if (controller.recompressedData.isNotEmpty)
+              if (state.recompressedData.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 16.0),
                   child: Column(
@@ -204,7 +214,7 @@ class _UnzipperScreenContent extends StatelessWidget {
                           ),
                           ElevatedButton.icon(
                             onPressed: () async {
-                              await Clipboard.setData(ClipboardData(text: controller.recompressedData));
+                              await Clipboard.setData(ClipboardData(text: state.recompressedData));
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
@@ -232,7 +242,7 @@ class _UnzipperScreenContent extends StatelessWidget {
                           border: Border.all(color: Colors.grey),
                         ),
                         child: SelectableText(
-                          controller.recompressedData,
+                          state.recompressedData,
                           style: const TextStyle(
                             fontFamily: 'monospace',
                             fontSize: 12,
@@ -249,20 +259,14 @@ class _UnzipperScreenContent extends StatelessWidget {
     );
   }
 
-  Future<void> _downloadJson(BuildContext context, UnzipperController controller) async {
-    if (controller.jsonData == null) return;
+  Future<void> _downloadJson(BuildContext context, UnzipperState state) async {
+    if (state.jsonData == null) return;
 
     try {
-      // Convertir les données en JSON formaté
-      final String jsonString = const JsonEncoder.withIndent('  ').convert(controller.jsonData);
-
-      // Convertir la chaîne en Uint8List
+      final String jsonString = const JsonEncoder.withIndent('  ').convert(state.jsonData);
       final Uint8List bytes = Uint8List.fromList(utf8.encode(jsonString));
-
-      // Générer un nom de fichier avec la date et l'heure actuelles
       final String fileName = 'json_${DateTime.now().millisecondsSinceEpoch}';
 
-      // Sauvegarder le fichier
       await FileSaver.instance.saveFile(
         name: fileName,
         bytes: bytes,
@@ -270,7 +274,6 @@ class _UnzipperScreenContent extends StatelessWidget {
         mimeType: MimeType.json,
       );
 
-      // Afficher une confirmation
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

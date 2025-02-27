@@ -18,7 +18,8 @@ dependencies:
   file_saver: ^0.2.12
   file_picker: ^9.0.1
   shared_preferences: ^2.5.2
-  provider: ^6.1.2
+  flutter_bloc: ^8.1.4
+  equatable: ^2.0.5
 
 dev_dependencies:
   flutter_test:

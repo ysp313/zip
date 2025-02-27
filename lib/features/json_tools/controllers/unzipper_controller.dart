@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:unzip/core/services/zipper_service.dart';
-import 'package:unzip/core/utils/exceptions.dart';
 
 enum UnzipperState {
   initial,
@@ -14,8 +13,6 @@ enum UnzipperState {
 }
 
 class UnzipperController extends ChangeNotifier {
-  final ZipperService _zipperService = const ZipperService();
-
   String _inputData = '';
   String _jsonOutput = '';
   String _recompressedData = '';
@@ -163,7 +160,7 @@ class UnzipperController extends ChangeNotifier {
   // Static methods for isolate computation
   static _UnzipResult _unzipDataIsolate(String encoded) {
     try {
-      final zipperService = const ZipperService();
+      const zipperService = ZipperService();
       final unzipped = zipperService.unzip(encoded);
       return _UnzipResult(data: unzipped);
     } catch (e) {
@@ -182,11 +179,12 @@ class UnzipperController extends ChangeNotifier {
 
   static _CompressionResult _compressJsonIsolate(Map<String, dynamic> json) {
     try {
-      final zipperService = const ZipperService();
+      const zipperService = ZipperService();
       final zippedData = zipperService.zip(json);
       return _CompressionResult(data: zippedData);
     } catch (e) {
-      return _CompressionResult(error: 'Erreur de compression: ${e.toString()}');
+      return _CompressionResult(
+          error: 'Erreur de compression: ${e.toString()}');
     }
   }
 }

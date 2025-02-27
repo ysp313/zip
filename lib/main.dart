@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:unzip/core/blocs/theme_cubit.dart';
 import 'package:unzip/config/routes.dart';
-import 'package:unzip/config/themes.dart';
-import 'package:unzip/core/services/theme_service.dart';
-import 'package:unzip/features/home/screens/home_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(
-    // En utilisant un seul ChangeNotifierProvider au lieu de MultiProvider
-    ChangeNotifierProvider<ThemeService>(
-      create: (_) => ThemeService(),
+    BlocProvider<ThemeCubit>(
+      create: (_) => ThemeCubit(),
       child: const MyApp(),
     ),
   );
@@ -20,14 +18,17 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeService = Provider.of<ThemeService>(context);
-
-    return MaterialApp(
-      title: 'Dev Toolbox',
-      theme: ThemeData.light(useMaterial3: true),
-      darkTheme: ThemeData.dark(useMaterial3: true),
-      themeMode: themeService.themeMode,
-      home: const HomeScreen(),
+    return BlocBuilder<ThemeCubit, ThemeMode>(
+      builder: (context, themeMode) {
+        return MaterialApp(
+          title: 'Dev Toolbox',
+          theme: ThemeData.light(useMaterial3: true),
+          darkTheme: ThemeData.dark(useMaterial3: true),
+          themeMode: themeMode,
+          initialRoute: AppRoutes.home,
+          routes: AppRoutes.routes,
+        );
+      },
     );
   }
 }

@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:unzip/core/utils/exceptions.dart';
 
 typedef FileContentCallback = void Function(String content);
 
@@ -54,11 +53,8 @@ class FileOperationButtons extends StatelessWidget {
       // Vérifier la taille du fichier
       if (file.size > maxFileSize) {
         if (context.mounted) {
-          _showErrorDialog(
-              context,
-              'Taille de fichier excessive',
-              'Le fichier sélectionné dépasse la taille maximale autorisée (${maxFileSize ~/ 1024 ~/ 1024} MB).'
-          );
+          _showErrorDialog(context, 'Taille de fichier excessive',
+              'Le fichier sélectionné dépasse la taille maximale autorisée (${maxFileSize ~/ 1024 ~/ 1024} MB).');
         }
         return;
       }
@@ -69,20 +65,14 @@ class FileOperationButtons extends StatelessWidget {
         onFilePicked(content);
       } else {
         if (context.mounted) {
-          _showErrorDialog(
-              context,
-              'Erreur de lecture',
-              'Impossible de lire le contenu du fichier.'
-          );
+          _showErrorDialog(context, 'Erreur de lecture',
+              'Impossible de lire le contenu du fichier.');
         }
       }
     } catch (e) {
       if (context.mounted) {
-        _showErrorDialog(
-            context,
-            'Erreur',
-            'Une erreur s\'est produite lors de la sélection du fichier: ${e.toString()}'
-        );
+        _showErrorDialog(context, 'Erreur',
+            'Une erreur s\'est produite lors de la sélection du fichier: ${e.toString()}');
       }
     }
   }
